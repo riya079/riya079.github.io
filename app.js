@@ -30,6 +30,7 @@ const floatingStatsBtn = document.getElementById('floatingStatsBtn');
 const floatingHelpBtn = document.getElementById('floatingHelpBtn');
 const celebrationScreen = document.getElementById('celebrationScreen');
 const celebrateNewDeckBtn = document.getElementById('celebrateNewDeckBtn');
+const kbdHints = document.getElementById('kbdHints');
 
 /** State */
 let currentWorkbook = null; // { name, wb, sheets: [name] }
@@ -155,6 +156,15 @@ function renderCard() {
   // Show confidence rating only when answer is shown
   if (confidenceRating) {
     confidenceRating.classList.toggle('hidden', !showingAnswer);
+  }
+  
+  // Update keyboard hints based on answer visibility
+  if (kbdHints) {
+    if (showingAnswer) {
+      kbdHints.textContent = '← to go back • Space/Enter to flip • 1=Hard 2=Medium 3=Easy';
+    } else {
+      kbdHints.textContent = '← to go back • Space/Enter to flip';
+    }
   }
   
 }
@@ -607,17 +617,17 @@ document.addEventListener('keydown', (e) => {
     renderCard();
     return;
   }
-  if (e.key === '1') {
+  if (e.key === '1' && showingAnswer) {
     e.preventDefault();
     rateConfidence('hard');
     return;
   }
-  if (e.key === '2') {
+  if (e.key === '2' && showingAnswer) {
     e.preventDefault();
     rateConfidence('medium');
     return;
   }
-  if (e.key === '3') {
+  if (e.key === '3' && showingAnswer) {
     e.preventDefault();
     rateConfidence('easy');
     return;
