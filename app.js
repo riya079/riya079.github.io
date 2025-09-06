@@ -29,7 +29,6 @@ const floatingSettingsBtn = document.getElementById('floatingSettingsBtn');
 const floatingStatsBtn = document.getElementById('floatingStatsBtn');
 const floatingHelpBtn = document.getElementById('floatingHelpBtn');
 const celebrationScreen = document.getElementById('celebrationScreen');
-const celebrateRestartBtn = document.getElementById('celebrateRestartBtn');
 const celebrateNewDeckBtn = document.getElementById('celebrateNewDeckBtn');
 
 /** State */
@@ -93,13 +92,6 @@ function buildStudyQueue() {
   updateSessionStats();
 }
 
-function shouldReviewCard(card) {
-  if (!card.lastReviewed) return true;
-  const now = Date.now();
-  const timeSinceReview = now - card.lastReviewed;
-  const reviewInterval = 24 * 60 * 60 * 1000; // 24 hours for learning cards
-  return timeSinceReview >= reviewInterval;
-}
 
 function rateConfidence(rating) {
   if (studyQueue.length === 0 || currentIndex >= studyQueue.length) return;
@@ -180,9 +172,6 @@ function showCompletionMessage() {
   celebrationScreen.classList.remove('hidden');
 }
 
-function resetUI() {
-  if (showAnswerBtn) showAnswerBtn.style.display = '';
-}
 
 function resetAllMastery() {
   allCards.forEach(card => {
@@ -521,7 +510,6 @@ flipContainer.addEventListener('click', () => {
 
 prevBtn.addEventListener('click', prevCard);
 restartBtn.addEventListener('click', () => {
-  resetUI();
   resetAllMastery();
   buildStudyQueue();
   showingAnswer = false;
@@ -566,7 +554,6 @@ celebrateNewDeckBtn.addEventListener('click', () => {
   currentWorkbook = null;
   
   // Reset UI elements
-  resetUI();
   
   // Reset file picker and show it
   const filePicker = document.querySelector('.file-picker');
@@ -601,7 +588,7 @@ document.addEventListener('click', (e) => {
 // Keyboard support
 document.addEventListener('keydown', (e) => {
   if (flashcardSection.classList.contains('hidden')) return;
-  const handledKeys = ['ArrowLeft',' ','Enter','r','R'];
+  const handledKeys = ['ArrowLeft',' ','Enter','1','2','3'];
   if (!handledKeys.includes(e.key)) return;
   // Blur any focused control to avoid browser focus highlight triggering
   const active = document.activeElement;
@@ -620,16 +607,22 @@ document.addEventListener('keydown', (e) => {
     renderCard();
     return;
   }
-  if (e.key === 'r' || e.key === 'R') {
+  if (e.key === '1') {
     e.preventDefault();
-    resetUI();
-    resetAllMastery();
-    buildStudyQueue();
-    showingAnswer = false;
-    renderCard();
+    rateConfidence('hard');
+    return;
+  }
+  if (e.key === '2') {
+    e.preventDefault();
+    rateConfidence('medium');
+    return;
+  }
+  if (e.key === '3') {
+    e.preventDefault();
+    rateConfidence('easy');
+    return;
   }
 });
 
-window.addEventListener('DOMContentLoaded', () => {});
 
 
