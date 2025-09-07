@@ -43,8 +43,11 @@
                     <select id="questionCol"></select>
                 </div>
                 <div class="field-row">
-                    <label for="answerCol">Answer column</label>
-                    <select id="answerCol"></select>
+                    <label>Answer columns</label>
+                    <div class="answer-columns-container">
+                        <div id="answerColsChecklist" class="checklist"></div>
+                        <div class="hint">Check the columns you want as answers</div>
+                    </div>
                 </div>
                 <div class="field-row">
                     <label for="startRow">Row range</label>
@@ -56,7 +59,10 @@
                 </div>
                 <div class="field-row">
                     <label for="shuffle">Shuffle</label>
-                    <input id="shuffle" type="checkbox" checked>
+                    <div class="toggle-container">
+                        <input id="shuffle" type="checkbox" checked>
+                        <label for="shuffle" class="toggle-slider"></label>
+                    </div>
                 </div>
                 <div class="actions">
                     <button id="startBtn" class="primary">Start</button>
@@ -70,11 +76,9 @@
             <div id="flashcard" class="flip-container" tabindex="0" role="button" aria-label="Flashcard">
                 <div id="flipInner" class="flip-inner">
                     <div class="flip-face flip-front">
-                        <div class="face-label question">Q ✨</div>
                         <div id="flashcardQuestion">Load a deck to begin</div>
                     </div>
                     <div class="flip-face flip-back">
-                        <div class="face-label answer">A 💡</div>
                         <div id="flashcardAnswer"></div>
                     </div>
                 </div>
@@ -89,11 +93,10 @@
             </div>
             <div class="controls">
                 <button id="showAnswerBtn">Flip ✨</button>
-                <button id="prevBtn" class="secondary">Prev</button>
                 <button id="restartBtn" class="secondary">Restart</button>
                 <button id="settingsBtn" class="secondary">Settings</button>
             </div>
-            <div class="kbd-hints hint" id="kbdHints">← to go back • Space/Enter to flip</div>
+            <div class="kbd-hints hint" id="kbdHints">Space/Enter to flip</div>
         </section>
 
         <!-- Celebration Screen -->
@@ -118,12 +121,6 @@
         </section>
     </main>
 
-    <!-- Floating Study Controls -->
-    <div id="floatingControls" class="floating-controls hidden">
-        <button id="floatingSettingsBtn" class="floating-btn" title="Settings">⚙️</button>
-        <button id="floatingStatsBtn" class="floating-btn" title="Study Stats">📊</button>
-        <button id="floatingHelpBtn" class="floating-btn" title="Help">❓</button>
-    </div>
 
     <footer class="app-footer">
         <span>Built with ❤️ for Riya by Shrey</span>

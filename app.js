@@ -7,7 +7,7 @@ const settingsPanel = document.getElementById('settingsPanel');
 const sheetsPanel = document.getElementById('sheetsPanel');
 const sheetSelect = document.getElementById('sheetSelect');
 const questionCol = document.getElementById('questionCol');
-const answerCol = document.getElementById('answerCol');
+const answerColsChecklist = document.getElementById('answerColsChecklist');
 const startRowInput = document.getElementById('startRow');
 const endRowInput = document.getElementById('endRow');
 const shuffleCheckbox = document.getElementById('shuffle');
@@ -19,15 +19,10 @@ const flipInner = document.getElementById('flipInner');
 const questionEl = document.getElementById('flashcardQuestion');
 const answerEl = document.getElementById('flashcardAnswer');
 const showAnswerBtn = document.getElementById('showAnswerBtn');
-const prevBtn = document.getElementById('prevBtn');
 const restartBtn = document.getElementById('restartBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const studyPrompt = document.getElementById('studyPrompt');
 const confidenceRating = document.getElementById('confidenceRating');
-const floatingControls = document.getElementById('floatingControls');
-const floatingSettingsBtn = document.getElementById('floatingSettingsBtn');
-const floatingStatsBtn = document.getElementById('floatingStatsBtn');
-const floatingHelpBtn = document.getElementById('floatingHelpBtn');
 const celebrationScreen = document.getElementById('celebrationScreen');
 const celebrateNewDeckBtn = document.getElementById('celebrateNewDeckBtn');
 const kbdHints = document.getElementById('kbdHints');
@@ -59,6 +54,29 @@ function buildOptions(selectEl, values) {
     opt.value = v.value;
     opt.textContent = v.label;
     selectEl.appendChild(opt);
+  }
+}
+
+function buildChecklist(checklistEl, values, excludeValue = null) {
+  checklistEl.innerHTML = '';
+  for (const v of values) {
+    if (excludeValue && Number(v.value) === excludeValue) continue;
+    
+    const item = document.createElement('div');
+    item.className = 'checklist-item';
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `answer-col-${v.value}`;
+    checkbox.value = v.value;
+    
+    const label = document.createElement('label');
+    label.htmlFor = `answer-col-${v.value}`;
+    label.textContent = v.label;
+    
+    item.appendChild(checkbox);
+    item.appendChild(label);
+    checklistEl.appendChild(item);
   }
 }
 
@@ -131,6 +149,7 @@ function rateConfidence(rating) {
       showCompletionMessage();
       return;
     }
+    // currentIndex is already reset to 0 in buildStudyQueue()
   }
   
   showingAnswer = false;
@@ -139,7 +158,7 @@ function rateConfidence(rating) {
 }
 
 function renderCard() {
-  if (studyQueue.length === 0 || currentIndex >= studyQueue.length) {
+  if (studyQueue.length === 0) {
     questionEl.textContent = 'No cards to study!';
     answerEl.textContent = '';
     if (flipInner) flipInner.classList.remove('flipped');
@@ -147,9 +166,39 @@ function renderCard() {
     return;
   }
   
+  // Ensure currentIndex is within bounds
+  if (currentIndex >= studyQueue.length) {
+    currentIndex = studyQueue.length - 1;
+  }
+  
   const item = studyQueue[currentIndex];
   questionEl.textContent = item.q ?? '';
-  answerEl.textContent = item.a ?? '';
+  
+  // Render answers in sections if it's an array, otherwise as single text
+  if (Array.isArray(item.a) && item.aLabels) {
+    answerEl.innerHTML = '';
+    item.a.forEach((answer, index) => {
+      const section = document.createElement('div');
+      const isEmpty = answer === 'Empty string, missing in Excel sheet';
+      
+      section.className = isEmpty ? 'answer-section empty-section' : 'answer-section';
+      
+      const label = document.createElement('div');
+      label.className = 'answer-label';
+      label.textContent = item.aLabels[index] || `Answer ${index + 1}`;
+      
+      const content = document.createElement('div');
+      content.className = isEmpty ? 'answer-content empty-content' : 'answer-content';
+      content.textContent = answer;
+      
+      section.appendChild(label);
+      section.appendChild(content);
+      answerEl.appendChild(section);
+    });
+  } else {
+    answerEl.textContent = item.a ?? '';
+  }
+  
   if (flipInner) flipInner.classList.toggle('flipped', showingAnswer);
   showAnswerBtn.textContent = showingAnswer ? 'Show question ✨' : 'Show answer ✨';
   
@@ -161,9 +210,9 @@ function renderCard() {
   // Update keyboard hints based on answer visibility
   if (kbdHints) {
     if (showingAnswer) {
-      kbdHints.textContent = '← to go back • Space/Enter to flip • 1=Hard 2=Medium 3=Easy';
+      kbdHints.textContent = 'Space/Enter to flip • 1=Hard 2=Medium 3=Easy';
     } else {
-      kbdHints.textContent = '← to go back • Space/Enter to flip';
+      kbdHints.textContent = 'Space/Enter to flip';
     }
   }
   
@@ -192,17 +241,6 @@ function resetAllMastery() {
   });
 }
 
-function prevCard() {
-  if (studyQueue.length === 0) return;
-  currentIndex = (currentIndex - 1 + studyQueue.length) % studyQueue.length;
-  showingAnswer = false;
-  renderCard();
-  if (flipInner) {
-    flipInner.classList.remove('bump');
-    void flipInner.offsetWidth;
-    flipInner.classList.add('bump');
-  }
-}
 
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -297,13 +335,20 @@ function initColumnsAndRange() {
     }
   }
 
-  buildOptions(questionCol, columnOptions);
-  buildOptions(answerCol, columnOptions);
-  questionCol.selectedIndex = 0;
-  answerCol.selectedIndex = Math.min(1, columnOptions.length - 1);
+  // Store column options for efficient filtering
+  allColumnOptions = columnOptions;
   
-  // Update answer column when question column changes
+  buildOptions(questionCol, columnOptions);
+  questionCol.selectedIndex = 0;
+  
+  // Update answer columns (this will filter out the question column)
   updateAnswerColumnOptions();
+  
+  // Check the second column as default answer if available
+  if (columnOptions.length > 1) {
+    const secondCheckbox = document.getElementById(`answer-col-${columnOptions[1].value}`);
+    if (secondCheckbox) secondCheckbox.checked = true;
+  }
 
   // Rows are 1-based for user; skip header row by default if it looks like header
   const defaultStart = 2; // assume first row is header
@@ -321,69 +366,35 @@ function initColumnsAndRange() {
 
 sheetSelect.addEventListener('change', initColumnsAndRange);
 
+// Store column options to avoid rebuilding
+let allColumnOptions = [];
+
 function updateAnswerColumnOptions() {
-  if (!currentWorkbook) return;
+  if (!currentWorkbook || allColumnOptions.length === 0) return;
   
-  const sheetName = currentWorkbook.sheets[Number(sheetSelect.value) || 0];
-  const ws = currentWorkbook.wb.Sheets[sheetName];
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  
-  const numCols = range.e.c - range.s.c + 1;
   const selectedQuestionCol = Number(questionCol.value);
   
-  // Build all column options
-  let headerRowValues = [];
-  let allData = [];
-  try {
-    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
-    headerRowValues = Array.isArray(aoa) && aoa.length > 0 ? aoa[0] : [];
-    allData = aoa || [];
-  } catch (_) {
-    headerRowValues = [];
-    allData = [];
-  }
-
-  // Helper function to check if a column has any data
-  function hasColumnData(colIndex) {
-    // Check if any row in this column has non-empty data
-    for (let rowIndex = 0; rowIndex < allData.length; rowIndex++) {
-      const cellValue = allData[rowIndex] && allData[rowIndex][colIndex];
-      if (cellValue != null && String(cellValue).trim() !== '') {
-        return true;
-      }
-    }
-    return false;
-  }
-  
-  // Build column options, filtering out empty columns
-  const allColumnOptions = [];
-  for (let i = 0; i < numCols; i++) {
-    // Only include columns that have data
-    if (hasColumnData(i)) {
-      const colNumber = i + 1;
-      const headerText = headerRowValues[i] != null ? String(headerRowValues[i]).trim() : '';
-      const label = headerText !== '' ? headerText : `(${toColumnLetter(colNumber)})`;
-      allColumnOptions.push({ value: String(colNumber), label });
-    }
-  }
-  
-  // Filter out the selected question column
+  // Simply filter out the selected question column
   const answerColumnOptions = allColumnOptions.filter(option => 
     Number(option.value) !== selectedQuestionCol
   );
   
-  // Update answer column options
-  buildOptions(answerCol, answerColumnOptions);
+  // Update answer columns options
+  buildChecklist(answerColsChecklist, answerColumnOptions, selectedQuestionCol);
   
-  // If current answer selection is invalid, select the first available option
-  if (answerColumnOptions.length > 0 && !answerColumnOptions.find(opt => opt.value === answerCol.value)) {
-    answerCol.selectedIndex = 0;
+  // If no answer columns are checked, check the first available option
+  if (answerColumnOptions.length > 0) {
+    const checkedBoxes = answerColsChecklist.querySelectorAll('input[type="checkbox"]:checked');
+    if (checkedBoxes.length === 0) {
+      const firstCheckbox = document.getElementById(`answer-col-${answerColumnOptions[0].value}`);
+      if (firstCheckbox) firstCheckbox.checked = true;
+    }
   }
 }
 
 function validateRowRange() {
-  const startRow = parseInt(startRowInput.value) || 2;
-  const endRow = parseInt(endRowInput.value) || 2;
+  const startRow = parseInt(startRowInput.value);
+  const endRow = parseInt(endRowInput.value);
   const maxRows = parseInt(startRowInput.max) || 2;
   const minRows = 2; // Minimum is 2 to avoid header row
   
@@ -440,8 +451,8 @@ startBtn.addEventListener('click', () => {
   const range = XLSX.utils.decode_range(ws['!ref']);
 
   const qColNum = Number(questionCol.value); // 1-based
-  const aColNum = Number(answerCol.value);
-  const startRow = Math.max(1, Number(startRowInput.value) || 1);
+  const selectedAnswerCols = Array.from(answerColsChecklist.querySelectorAll('input[type="checkbox"]:checked')).map(checkbox => Number(checkbox.value));
+  const startRow = Math.max(2, Number(startRowInput.value) || 2);
   const endRow = Math.max(startRow, Number(endRowInput.value) || startRow);
   
   // Additional validation
@@ -455,6 +466,11 @@ startBtn.addEventListener('click', () => {
     return;
   }
   
+  if (selectedAnswerCols.length === 0) {
+    alert('Please select at least one answer column!');
+    return;
+  }
+  
   const maxRows = range.e.r - range.s.r + 1;
   if (startRow > maxRows || endRow > maxRows) {
     alert(`Row numbers cannot exceed ${maxRows} (total rows in sheet)!`);
@@ -465,15 +481,32 @@ startBtn.addEventListener('click', () => {
   for (let r = startRow; r <= endRow; r++) {
     const r0 = range.s.r + (r - 1); // convert to 0-based absolute row index
     const qCellAddr = XLSX.utils.encode_cell({ r: r0, c: range.s.c + (qColNum - 1) });
-    const aCellAddr = XLSX.utils.encode_cell({ r: r0, c: range.s.c + (aColNum - 1) });
     const qCell = ws[qCellAddr];
-    const aCell = ws[aCellAddr];
     const qVal = qCell ? String(qCell.v) : '';
-    const aVal = aCell ? String(aCell.v) : '';
-    if (qVal !== '' || aVal !== '') {
+    
+    // Collect all answer values from selected columns (including empty ones)
+    const answerValues = [];
+    const answerLabels = [];
+    for (const aColNum of selectedAnswerCols) {
+      const aCellAddr = XLSX.utils.encode_cell({ r: r0, c: range.s.c + (aColNum - 1) });
+      const aCell = ws[aCellAddr];
+      const aVal = aCell ? String(aCell.v) : '';
+      
+      // Get the header label for this column
+      const headerRowR = range.s.r;
+      const aHeader = ws[XLSX.utils.encode_cell({ r: headerRowR, c: range.s.c + (aColNum - 1) })];
+      const aLabel = aHeader && aHeader.v ? String(aHeader.v).trim() : `Column ${toColumnLetter(aColNum)}`;
+      
+      // Always add the section, even if empty
+      answerValues.push(aVal.trim() !== '' ? aVal : 'Empty string, missing in Excel sheet');
+      answerLabels.push(aLabel);
+    }
+    
+    if (qVal !== '' || answerValues.length > 0) {
       deck.push({ 
         q: qVal, 
-        a: aVal, 
+        a: answerValues, // Store as array instead of joined string
+        aLabels: answerLabels, // Store labels for each answer
         confidence: 'new',
         mastery: 0,
         lastReviewed: null,
@@ -488,7 +521,6 @@ startBtn.addEventListener('click', () => {
   buildStudyQueue();
   
   flashcardSection.classList.remove('hidden');
-  floatingControls.classList.remove('hidden');
   studyStartTime = Date.now(); // Start tracking study time
   // Hide settings to focus on study
   if (settingsPanel) settingsPanel.classList.add('hidden');
@@ -497,10 +529,21 @@ startBtn.addEventListener('click', () => {
   try {
     const headerRowR = range.s.r;
     const qHeader = ws[XLSX.utils.encode_cell({ r: headerRowR, c: range.s.c + (qColNum - 1) })];
-    const aHeader = ws[XLSX.utils.encode_cell({ r: headerRowR, c: range.s.c + (aColNum - 1) })];
     const qLabel = qHeader && qHeader.v ? String(qHeader.v).trim() : `Column ${toColumnLetter(qColNum)}`;
-    const aLabel = aHeader && aHeader.v ? String(aHeader.v).trim() : `Column ${toColumnLetter(aColNum)}`;
-    if (studyPrompt) studyPrompt.textContent = `What is the ${aLabel} of ${qLabel}?`;
+    
+    // Get labels for all answer columns
+    const answerLabels = [];
+    for (const aColNum of selectedAnswerCols) {
+      const aHeader = ws[XLSX.utils.encode_cell({ r: headerRowR, c: range.s.c + (aColNum - 1) })];
+      const aLabel = aHeader && aHeader.v ? String(aHeader.v).trim() : `Column ${toColumnLetter(aColNum)}`;
+      answerLabels.push(aLabel);
+    }
+    
+    const answerLabelText = answerLabels.length === 1 
+      ? answerLabels[0] 
+      : answerLabels.join(', ');
+    
+    if (studyPrompt) studyPrompt.textContent = `What is the ${answerLabelText} of _____?`;
   } catch (_) {
     if (studyPrompt) studyPrompt.textContent = '';
   }
@@ -518,7 +561,6 @@ flipContainer.addEventListener('click', () => {
   renderCard();
 });
 
-prevBtn.addEventListener('click', prevCard);
 restartBtn.addEventListener('click', () => {
   resetAllMastery();
   buildStudyQueue();
@@ -532,23 +574,6 @@ settingsBtn.addEventListener('click', () => {
     // Hide flashcard section when showing settings
     flashcardSection.classList.add('hidden');
   }
-});
-
-// Floating controls
-floatingSettingsBtn.addEventListener('click', () => {
-  if (settingsPanel) {
-    settingsPanel.classList.remove('hidden');
-    // Hide flashcard section when showing settings
-    flashcardSection.classList.add('hidden');
-  }
-});
-
-floatingStatsBtn.addEventListener('click', () => {
-  alert(`Study Stats:\n\n📚 Total Cards: ${allCards.length}\n✅ Mastered: ${sessionStats.mastered}\n🔄 Learning: ${sessionStats.learning}\n🆕 New: ${sessionStats.new}`);
-});
-
-floatingHelpBtn.addEventListener('click', () => {
-  alert(`Study Tips:\n\n✨ Rate your confidence after each answer\n📊 Track your mastery progress\n⌨️ Use keyboard shortcuts for faster studying\n🔄 Review harder cards more frequently`);
 });
 
 celebrateNewDeckBtn.addEventListener('click', () => {
@@ -580,9 +605,6 @@ celebrateNewDeckBtn.addEventListener('click', () => {
   const sheetsPanel = document.getElementById('sheetsPanel');
   if (sheetsPanel) sheetsPanel.classList.add('hidden');
   if (settingsPanel) settingsPanel.classList.remove('hidden');
-  
-  // Hide floating controls
-  floatingControls.classList.add('hidden');
 });
 
 // Confidence rating button event listeners
@@ -598,7 +620,8 @@ document.addEventListener('click', (e) => {
 // Keyboard support
 document.addEventListener('keydown', (e) => {
   if (flashcardSection.classList.contains('hidden')) return;
-  const handledKeys = ['ArrowLeft',' ','Enter','1','2','3'];
+  if (!settingsPanel.classList.contains('hidden')) return; // Don't handle shortcuts when settings are open
+  const handledKeys = [' ','Enter','1','2','3'];
   if (!handledKeys.includes(e.key)) return;
   // Blur any focused control to avoid browser focus highlight triggering
   const active = document.activeElement;
@@ -606,11 +629,6 @@ document.addEventListener('keydown', (e) => {
     active.blur();
   }
   // Handle shortcuts and prevent default to stop native focus/click behavior
-  if (e.key === 'ArrowLeft') {
-    e.preventDefault();
-    prevCard();
-    return;
-  }
   if (e.key === ' ' || e.key === 'Enter') {
     e.preventDefault();
     showingAnswer = !showingAnswer;
